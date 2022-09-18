@@ -1,0 +1,1 @@
+# BGT-hash-function
