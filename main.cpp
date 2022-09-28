@@ -12,7 +12,6 @@ using namespace std;
 
 void read_file();
 bitset<32> rightRotate(string n, unsigned int d);
-string addTwoBinaryNum(string bn1, string bn2);
 string add(string a, string b);
 void compressionLoop(vector<string> words, long long int m_h[]);
 
@@ -47,11 +46,11 @@ const unsigned int sha256_k[64] = //UL = uint32
         0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
 
 int main() {
-  size_t a = 0;
   bool choice;
 	string input = test, line = "";
-  vector<string> wordInBits;
-  vector<string> wordInBits32;
+  vector<string> wordInBits, wordInBits32;
+  long long int m_h[105];
+  unsigned int message[8];
 
   for (std::size_t i = 0; i < input.size(); i++) {
     wordInBits.push_back(bitset<8>(input[i]).to_string());
@@ -59,50 +58,69 @@ int main() {
   wordInBits.push_back("10000000");
 
   // Pad with 0’s until data is a multiple of 512, less 64 bits (448 bits in our case):
-  while (wordInBits.size() != 63) {
+  while ((wordInBits.size() * 8 + 8) % 512 != 0) {
     wordInBits.push_back(bitset<8>().to_string());
   }
   // Append 64 bits to the end, where the 64 bits are a big-endian integer representing the length of the original input in binary.
+  // cia su big-endian reik dar pasiziuret ar gerai mastau
   wordInBits.push_back(bitset<8>(input.size() * 8).to_string());
-  // Copy the input data from step 1 into a new array where each entry is a 32-bit word:
-  for (int i = 0; i < 512/32; i++) {
-    string newSet = "";
-    for (size_t y = a; y < a + 4; y++) {
-      newSet += wordInBits.at(y);
+
+  copy(begin(hashes), end(hashes), begin(message));
+  for (int j = 0; j < wordInBits.size() / 64; j++) {
+    wordInBits32.clear();
+    wordInBits32.reserve(64);
+    size_t a = 0;
+    for (int i = 0; i<512/32; i++) {
+      string newSet = "";
+      for (size_t y = a; y < a + 4; y++) {
+        newSet += wordInBits.at(y);
+      }
+      wordInBits32.push_back(newSet);
+      a += 4;
     }
-    wordInBits32.push_back(newSet);
-    a += 4;
-  }
-
-  while (wordInBits32.size() != 64) {
-    wordInBits32.push_back(bitset<32>().to_string());
-  }
-
-  for (int i = 16; i < 64; i++) {
-    bitset<32> s0 = (rightRotate(wordInBits32.at(i-15), 7) ^ rightRotate(wordInBits32.at(i-15), 18) ^ (bitset<32>(wordInBits32.at(i-15)) >> 3));
-    bitset<32> s1 = (rightRotate(wordInBits32.at(i-2), 17) ^ rightRotate(wordInBits32.at(i-2), 19) ^ (bitset<32>(wordInBits32.at(i-2)) >> 10));
-    // apsisaugot reik jeigu po sudeties butu didesnis nei 32??
-    bitset<34> modBinary(add(wordInBits32.at(i-16), s0.to_string()));
-    modBinary = bitset<34>(add(modBinary.to_string(), wordInBits32.at(i-7)));
-    modBinary = bitset<34>(add(modBinary.to_string(), s1.to_string()));
-
-    while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
-      modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
+    while (wordInBits32.size() != 64) {
+      wordInBits32.push_back(bitset<32>().to_string());
     }
 
-    wordInBits32.at(i) = modBinary.to_string();
+    for (int i = 16; i < 64; i++) {
+      bitset<32> s0 = (rightRotate(wordInBits32.at(i-15), 7) ^ rightRotate(wordInBits32.at(i-15), 18) ^ (bitset<32>(wordInBits32.at(i-15)) >> 3));
+      bitset<32> s1 = (rightRotate(wordInBits32.at(i-2), 17) ^ rightRotate(wordInBits32.at(i-2), 19) ^ (bitset<32>(wordInBits32.at(i-2)) >> 10));
+      // apsisaugot reik jeigu po sudeties butu didesnis nei 32??
+      bitset<40> modBinary(add(wordInBits32.at(i-16), s0.to_string()));
+      while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
+        modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
+      }
+      modBinary = bitset<40>(add(modBinary.to_string(), wordInBits32.at(i-7)));
+      while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
+        modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
+      }
+      modBinary = bitset<40>(add(modBinary.to_string(), s1.to_string()));
+
+      while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
+        modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
+      }
+
+      // convertinam atgal i 32 bitus ir issisaugom
+      wordInBits32.at(i) = bitset<32>((modBinary << 8).to_string()).to_string();
+    }
+
+    char letter = 'a';
+    for (int i=0; i<8; i++, letter++) {
+      m_h[letter] = hashes[i];
+    }
+
+    compressionLoop(wordInBits32, m_h);
+
+    for (int i = 'a', j = 0; i <= 'h'; i++, j++) {
+      message[j] = bitset<40>(add(bitset<32>(message[j]).to_string(), bitset<32>(m_h[i]).to_string())).to_ullong();
+      while (message[j] >= (unsigned long long) pow(2, 32)) {
+        message[j] = message[j] % (unsigned long long) (pow(2, 32));
+      }
+    }
   }
 
-  long long int m_h[105];
-  compressionLoop(wordInBits32, m_h);
-  long long int message[8];
-
-  for (int i = 'a', j = 0; i <= 'h'; i++, j++) {
-    message[j] = bitset<32>(add(bitset<32>(hashes[j]).to_string(), bitset<32>(m_h[i]).to_string())).to_ullong();
-    while (message[j] >= (unsigned long long) pow(2, 32)) {
-      message[j] = message[j] % (unsigned long long) (pow(2, 32));
-    }
-    cout << hex << message[j];
+  for (int i = 0; i < 8; i++) {
+    cout << hex << message[i];
   }
 
 	// cout << "Skaityti faila(1), ivesti(0):" << endl;
@@ -150,36 +168,40 @@ string add(string a, string b) {
   int size_a = a.size() - 1;
   int size_b = b.size() - 1;
   while (size_a >= 0 || size_b >= 0 || temp == 1){
-      temp += ((size_a >= 0)? a[size_a] - '0': 0);
-      temp += ((size_b >= 0)? b[size_b] - '0': 0);
-      result = char(temp % 2 + '0') + result;
-      temp /= 2;
-      size_a--; size_b--;
+    temp += ((size_a >= 0)? a[size_a] - '0': 0);
+    temp += ((size_b >= 0)? b[size_b] - '0': 0);
+    result = char(temp % 2 + '0') + result;
+    temp /= 2;
+    size_a--; size_b--;
   }
   return result;
 }
 
 void compressionLoop(vector<string> words, long long int m_h[]) {
-  char letter = 'a';
-  for (int i=0; i<8; i++, letter++) {
-    m_h[letter] = hashes[i];
-  }
-
-  for (int i=0; i <64; i++) {
-    bitset<32> s1 = ((m_h['e'] >> 6)|(m_h['e'] << (32 - 6)) ^ (m_h['e'] >> 11)|(m_h['e'] << (32 - 11)) ^ (m_h['e'] >> 25)|(m_h['e'] << (32 - 25)));
+  for (int i=0; i<64; i++) {
+    bitset<32> s1 = (((m_h['e'] >> 6)|(m_h['e'] << (32 - 6))) ^ ((m_h['e'] >> 11)|(m_h['e'] << (32 - 11))) ^ ((m_h['e'] >> 25)|(m_h['e'] << (32 - 25))));
     bitset<32> ch = (m_h['e'] & m_h['f']) ^ (~m_h['e'] & m_h['g']);
-    bitset<32> temp1(add(bitset<32>(m_h['h']).to_string(), s1.to_string()));
-    temp1 = bitset<32>(add(temp1.to_string(), ch.to_string()));
-    temp1 = bitset<32>(add(temp1.to_string(), words.at(i)));
-    temp1 = bitset<32>(add(temp1.to_string(), bitset<32>(sha256_k[i]).to_string()));
+    bitset<40> temp1(add(bitset<32>(m_h['h']).to_string(), s1.to_string()));
     while (temp1.to_ullong() >= (unsigned long long) pow(2, 32)) {
       temp1 = temp1.to_ullong() % (unsigned long long) (pow(2, 32));
     }
-    bitset<32> s0 = ((m_h['a'] >> 2)|(m_h['a'] << (32 - 2)) ^ (m_h['a'] >> 13)|(m_h['a'] << (32 - 13)) ^ (m_h['a'] >> 22)|(m_h['a'] << (32 - 22)));
+    temp1 = bitset<40>(add(temp1.to_string(), ch.to_string()));
+    while (temp1.to_ullong() >= (unsigned long long) pow(2, 32)) {
+      temp1 = temp1.to_ullong() % (unsigned long long) (pow(2, 32));
+    }
+    temp1 = bitset<40>(add(temp1.to_string(), words.at(i)));
+    while (temp1.to_ullong() >= (unsigned long long) pow(2, 32)) {
+      temp1 = temp1.to_ullong() % (unsigned long long) (pow(2, 32));
+    }
+    temp1 = bitset<40>(add(temp1.to_string(), bitset<32>(sha256_k[i]).to_string()));
+    while (temp1.to_ullong() >= (unsigned long long) pow(2, 32)) {
+      temp1 = temp1.to_ullong() % (unsigned long long) (pow(2, 32));
+    }
+    bitset<32> s0 = (((m_h['a'] >> 2)|(m_h['a'] << (32 - 2))) ^ ((m_h['a'] >> 13)|(m_h['a'] << (32 - 13))) ^ ((m_h['a'] >> 22)|(m_h['a'] << (32 - 22))));
     bitset<32> maj = (m_h['a'] & m_h['b']) ^ (m_h['a'] & m_h['c']) ^ (m_h['b'] & m_h['c']);
-    bitset<32> temp2(add(s0.to_string(), maj.to_string()));
+    bitset<40> temp2(add(s0.to_string(), maj.to_string()));
     while (temp2.to_ullong() >= (unsigned long long) pow(2, 32)) {
-      temp1 = temp2.to_ullong() % (unsigned long long) (pow(2, 32));
+      temp2 = temp2.to_ullong() % (unsigned long long) (pow(2, 32));
     }
     m_h['h'] = m_h['g'];
     m_h['g'] = m_h['f'];
