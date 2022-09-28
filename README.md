@@ -100,4 +100,16 @@ string msg = "";
 FOR int i=0; i<8; i++:
   msg += hex << h[i];
 </pre>
+
 # Eksperimentinė analizė:
+1. Du failai sudaryti tik iš vieno, tačiau skirtingo, simbolio:
+- File - oneSymbol1.txt, Hash - ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb
+- File - oneSymbol2.txt, Hash - cd0aa9856147b6c5b4ff2b7dfee5da20aa38253099ef1b4a64aced233c9afe29
+2. Du failai sudaryti iš daugiau nei 1000 atsitiktinai sugeneruotų simbolių:
+- File - 1001Symbols1.txt, Hash - aa6255cac1962e988c9514e83cc80355c86cc714e424b3aa349ad222d03da434
+- File - 1001Symbols2.txt, Hash - 9ca449bcee14463ce6ec950cf674d7e1e6cbb01110753ba8a665c99c9b75764e
+3. Du failai sudaryti iš daugiau nei 1000 simbolių, bet skiriasi vienu nuo kito tik vienu simboliu:
+- File - 1001Symbols3.txt, Hash - 9072798fb3bd3ae0a1f7c0b153104b5d459f9744ab80861c443e706e8a08719b
+- File - 1001Symbols4.txt, Hash - 709f4ff0218f4f02e20a56bb77733734e3d427e2e01a33608be5529a731aab36
+4. Tuščias failas:
+- File - emptyFile.txt, Hash - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
