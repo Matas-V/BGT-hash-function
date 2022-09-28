@@ -10,12 +10,14 @@
 #include <bitset>
 using namespace std;
 
-void read_file();
+void read_file(string &input);
 bitset<32> rightRotate(string n, unsigned int d);
 string add(string a, string b);
 void compressionLoop(vector<string> words, long long int m_h[]);
+void convertTextToChunksOf512(vector<string> &wordInBits, string &input, int &zeros);
+void modifyMessageWords(vector<string> &wordInBits32);
+void hashing(string input);
 
-const string test = "hello world";
 const unsigned int hashes[8] = {
   0x6a09e667,
   0xbb67ae85,
@@ -27,7 +29,7 @@ const unsigned int hashes[8] = {
   0x5be0cd19
 };
 
-const unsigned int sha256_k[64] = //UL = uint32
+const unsigned int sha256_k[64] = 
         {0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
         0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -47,109 +49,36 @@ const unsigned int sha256_k[64] = //UL = uint32
 
 int main() {
   bool choice;
-	string input = test, line = "";
-  vector<string> wordInBits, wordInBits32;
-  long long int m_h[105];
-  unsigned int message[8];
+  string input, hash;
 
-  for (std::size_t i = 0; i < input.size(); i++) {
-    wordInBits.push_back(bitset<8>(input[i]).to_string());
-  }
-  wordInBits.push_back("10000000");
+  cout << "Skaityti faila(1), ivesti(0):" << endl;
+	cin >> choice;
 
-  // Pad with 0’s until data is a multiple of 512, less 64 bits (448 bits in our case):
-  while ((wordInBits.size() * 8 + 8) % 512 != 0) {
-    wordInBits.push_back(bitset<8>().to_string());
-  }
-  // Append 64 bits to the end, where the 64 bits are a big-endian integer representing the length of the original input in binary.
-  // cia su big-endian reik dar pasiziuret ar gerai mastau
-  wordInBits.push_back(bitset<8>(input.size() * 8).to_string());
-
-  copy(begin(hashes), end(hashes), begin(message));
-  for (int j = 0; j < wordInBits.size() / 64; j++) {
-    wordInBits32.clear();
-    wordInBits32.reserve(64);
-    size_t a = 0;
-    for (int i = 0; i<512/32; i++) {
-      string newSet = "";
-      for (size_t y = a; y < a + 4; y++) {
-        newSet += wordInBits.at(y);
-      }
-      wordInBits32.push_back(newSet);
-      a += 4;
-    }
-    while (wordInBits32.size() != 64) {
-      wordInBits32.push_back(bitset<32>().to_string());
-    }
-
-    for (int i = 16; i < 64; i++) {
-      bitset<32> s0 = (rightRotate(wordInBits32.at(i-15), 7) ^ rightRotate(wordInBits32.at(i-15), 18) ^ (bitset<32>(wordInBits32.at(i-15)) >> 3));
-      bitset<32> s1 = (rightRotate(wordInBits32.at(i-2), 17) ^ rightRotate(wordInBits32.at(i-2), 19) ^ (bitset<32>(wordInBits32.at(i-2)) >> 10));
-      // apsisaugot reik jeigu po sudeties butu didesnis nei 32??
-      bitset<40> modBinary(add(wordInBits32.at(i-16), s0.to_string()));
-      while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
-        modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
-      }
-      modBinary = bitset<40>(add(modBinary.to_string(), wordInBits32.at(i-7)));
-      while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
-        modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
-      }
-      modBinary = bitset<40>(add(modBinary.to_string(), s1.to_string()));
-
-      while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
-        modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
-      }
-
-      // convertinam atgal i 32 bitus ir issisaugom
-      wordInBits32.at(i) = bitset<32>((modBinary << 8).to_string()).to_string();
-    }
-
-    char letter = 'a';
-    for (int i=0; i<8; i++, letter++) {
-      m_h[letter] = hashes[i];
-    }
-
-    compressionLoop(wordInBits32, m_h);
-
-    for (int i = 'a', j = 0; i <= 'h'; i++, j++) {
-      message[j] = bitset<40>(add(bitset<32>(message[j]).to_string(), bitset<32>(m_h[i]).to_string())).to_ullong();
-      while (message[j] >= (unsigned long long) pow(2, 32)) {
-        message[j] = message[j] % (unsigned long long) (pow(2, 32));
-      }
-    }
+  if (choice) {
+    read_file(input);
+  } else {
+    cin >> input;
+    hashing(input);
   }
 
-  for (int i = 0; i < 8; i++) {
-    cout << hex << message[i];
-  }
-
-	// cout << "Skaityti faila(1), ivesti(0):" << endl;
-	// cin >> choice;
-
-  // if (choice) {
-  //   read_file();
-  // } else {
-  //   cin >> input;
-  //   cout << input << endl;
-  // }
   return 0;
 }
 
-void read_file() {
-  ifstream rf("message.txt");
-  string line;
+void read_file(string &input) {
+  string pav;
+  cout << "Parasykite failo pavadinima (be .txt galunes):" << endl;
+  cin >> pav;
+  ifstream rf("./tests/"+pav+".txt");
   stringstream my_buffer;
 
-  my_buffer << rf.rdbuf();
-
   if (rf.is_open()) {
+    my_buffer << rf.rdbuf();
+    input = my_buffer.str();
+    hashing(input);
     rf.close();
-    while(!my_buffer.eof()) {
-      my_buffer >> line;
-      cout << line << endl;
-    }
   } else {
     cout << "Nepavyko atidaryti failo." << endl;
+    exit;
   }
 }
 
@@ -175,6 +104,102 @@ string add(string a, string b) {
     size_a--; size_b--;
   }
   return result;
+}
+
+void hashing(string input) {
+  int zeros = 0;
+  vector<string> wordInBits, wordInBits32;
+  long long int m_h[105];
+  unsigned int message[8];
+  
+  convertTextToChunksOf512(wordInBits, input, zeros);
+
+  size_t a = 0;
+  copy(begin(hashes), end(hashes), begin(message));
+  // looping over all chunks of 512bit
+  for (int j = 0; j < wordInBits.size() / 64; j++) {
+    wordInBits32.clear();
+    wordInBits32.reserve(64);
+    for (int i = 0; i<512/32; i++) {
+      string newSet = "";
+      for (size_t y = a; y < a + 4; y++) {
+        newSet += wordInBits.at(y);
+      }
+      wordInBits32.push_back(newSet);
+      a += 4;
+    }
+    while (wordInBits32.size() != 64) {
+      wordInBits32.push_back(bitset<32>().to_string());
+    }
+
+    modifyMessageWords(wordInBits32);
+
+    char letter = 'a';
+    for (int i=0; i<8; i++, letter++) {
+      m_h[letter] = message[i];
+    }
+
+    compressionLoop(wordInBits32, m_h);
+
+    for (int i = 'a', j = 0; i <= 'h'; i++, j++) {
+      message[j] += m_h[i];
+      while (message[j] >= (unsigned long long) pow(2, 32)) {
+        message[j] = message[j] % (unsigned long long) (pow(2, 32));
+      }
+    }
+  }
+  for (int i = 0; i < 8; i++) {
+    cout << hex << message[i];
+  }
+}
+
+void convertTextToChunksOf512(vector<string> &wordInBits, string &input, int &zeros) {
+  for (std::size_t i = 0; i < input.size(); i++) {
+    wordInBits.push_back(bitset<8>(input[i]).to_string());
+  }
+
+  while ((wordInBits.size() * 8 + 1 + 64 + zeros) % 512 != 0) {
+    zeros++;
+  }
+
+  if (zeros) {
+    wordInBits.push_back("10000000");
+    zeros -= 7;
+    while (zeros) {
+      wordInBits.push_back(bitset<8>().to_string());
+      zeros -= 8;
+    }
+
+    string bigEndian = bitset<64>(input.size()*8).to_string();
+    for (size_t j = 0; j < 8; j++) {
+      string bits = bigEndian.substr(j*8, 8);
+      wordInBits.push_back(bits);
+    }
+  }
+}
+
+void modifyMessageWords(vector<string> &wordInBits32) {
+  for (int i = 16; i < 64; i++) {
+    bitset<32> s0 = (rightRotate(wordInBits32.at(i-15), 7) ^ rightRotate(wordInBits32.at(i-15), 18) ^ (bitset<32>(wordInBits32.at(i-15)) >> 3));
+    bitset<32> s1 = (rightRotate(wordInBits32.at(i-2), 17) ^ rightRotate(wordInBits32.at(i-2), 19) ^ (bitset<32>(wordInBits32.at(i-2)) >> 10));
+    // apsisaugot reik jeigu po sudeties butu didesnis nei 32??
+    bitset<40> modBinary(add(wordInBits32.at(i-16), s0.to_string()));
+    while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
+      modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
+    }
+    modBinary = bitset<40>(add(modBinary.to_string(), wordInBits32.at(i-7)));
+    while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
+      modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
+    }
+    modBinary = bitset<40>(add(modBinary.to_string(), s1.to_string()));
+
+    while (modBinary.to_ullong() >= (unsigned long long) pow(2, 32)) {
+      modBinary = modBinary.to_ullong() % (unsigned long long) (pow(2, 32));
+    }
+
+    // convertinam atgal i 32 bitus ir issisaugom
+    wordInBits32.at(i) = bitset<32>((modBinary << 8).to_string()).to_string();
+  }
 }
 
 void compressionLoop(vector<string> words, long long int m_h[]) {
