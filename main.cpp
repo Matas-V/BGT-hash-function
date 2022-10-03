@@ -1,4 +1,8 @@
 #include <iostream>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
+#include <numeric>
 #include <sstream>
 #include <fstream>
 #include <string>
@@ -16,7 +20,10 @@ string add(string a, string b);
 void compressionLoop(vector<string> words, long long int m_h[]);
 void convertTextToChunksOf512(vector<string> &wordInBits, string &input, int &zeros);
 void modifyMessageWords(vector<string> &wordInBits32);
-void hashing(string input);
+string hashing(string input);
+void readByLinesExperiment(int num);
+void readLinesForCollisionCheck();
+void testAvalancheEffect();
 
 const unsigned int hashes[8] = {
   0x6a09e667,
@@ -57,24 +64,34 @@ int main() {
   if (choice) {
     read_file(input);
   } else {
-    cin >> input;
-    hashing(input);
+    getline(cin >> ws, input);
+    hash = hashing(input);
+    cout << hash << endl;
   }
+
+  // for (int i=1; i<=10; i++)
+  //   readByLinesExperiment(pow(2, i));
+
+  // readLinesForCollisionCheck();
+
+  // testAvalancheEffect();
 
   return 0;
 }
 
 void read_file(string &input) {
-  string pav;
+  string pav, hash;
   cout << "Parasykite failo pavadinima (be .txt galunes):" << endl;
   cin >> pav;
   ifstream rf("./tests/"+pav+".txt");
   stringstream my_buffer;
+  my_buffer.clear();
 
   if (rf.is_open()) {
     my_buffer << rf.rdbuf();
     input = my_buffer.str();
-    hashing(input);
+    hash = hashing(input);
+    cout << hash << endl;
     rf.close();
   } else {
     cout << "Nepavyko atidaryti failo." << endl;
@@ -106,17 +123,19 @@ string add(string a, string b) {
   return result;
 }
 
-void hashing(string input) {
+string hashing(string input) {
   int zeros = 0;
   vector<string> wordInBits, wordInBits32;
   long long int m_h[105];
   unsigned int message[8];
+  stringstream ss;
   
   convertTextToChunksOf512(wordInBits, input, zeros);
 
   size_t a = 0;
   copy(begin(hashes), end(hashes), begin(message));
   // looping over all chunks of 512bit
+  auto start = std::chrono::high_resolution_clock::now();
   for (int j = 0; j < wordInBits.size() / 64; j++) {
     wordInBits32.clear();
     wordInBits32.reserve(64);
@@ -148,9 +167,14 @@ void hashing(string input) {
       }
     }
   }
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> diff = end - start;
+  // cout << diff.count() << endl;
+  ss.clear();
   for (int i = 0; i < 8; i++) {
-    cout << hex << message[i];
+    ss << setfill('0') << setw(8) << hex << message[i];
   }
+  return ss.str();
 }
 
 void convertTextToChunksOf512(vector<string> &wordInBits, string &input, int &zeros) {
@@ -243,4 +267,113 @@ void compressionLoop(vector<string> words, long long int m_h[]) {
       m_h['a'] = m_h['a'] % (unsigned long long) (pow(2, 32));
     }
   }
+}
+
+void readByLinesExperiment(int num) {
+  int a=0;
+  string line, text="", hash;
+  ifstream rf("./tests/konstitucija.txt");
+  stringstream my_buffer;
+
+  if (rf.is_open()) {
+    my_buffer << rf.rdbuf();
+    rf.close();
+  }
+  while(my_buffer && a < num) {
+    getline(my_buffer, line, '\n');
+    if (a != 0) {
+      text += '\n';
+    }
+    text += line;
+    a++;
+  }
+  hash = hashing(text);
+  cout << hash << endl;
+}
+
+void readLinesForCollisionCheck() {
+  string line, fileName="check25k1000Symbols.txt", hash="";
+  int collisions=0;
+  vector<string> hashes;
+  hashes.reserve(25000);
+  ifstream rf("./tests/" + fileName);
+  stringstream my_buffer;
+
+  if (rf.is_open()) {
+    my_buffer << rf.rdbuf();
+    rf.close();
+  }
+  while(!my_buffer.eof()) {
+    getline(my_buffer, line);
+    hash = hashing(line);
+    cout << hash << endl;
+    hashes.push_back(hash);
+
+    for (int i=0; i<hashes.size() - 1; i++) {
+      if (hashes.at(i) == hash)
+        collisions++;
+    }
+  }
+  cout << "Collisions count: " << collisions << endl;
+}
+
+void testAvalancheEffect() {
+  string text, fileName="porosStringu.txt", hash;
+  vector<string> hashes1, hashes2;
+  vector<double> skirtumai, skirtumai2;
+  ifstream rf("./tests/" + fileName);
+  stringstream my_buffer;
+
+  if (rf.is_open()) {
+    my_buffer << rf.rdbuf();
+    rf.close();
+  }
+  while(!my_buffer.eof()) {
+    getline(my_buffer, text, ' ');
+    hash = hashing(text);
+    hashes1.push_back(hash);
+    getline(my_buffer, text, ' ');
+    hash = hashing(text);
+    hashes2.push_back(hash);
+  }
+
+  for (int s = 0; s < hashes1.size(); s++) {
+    bitset<512> b1;
+    for (int i = 0; i < 64; ++i) {
+        char c = hashes1.at(s).at(i);
+        for (int j = 7; j >= 0 && c; --j) {
+            if (c & 0x1) {
+                b1.set(8 * i + j);
+            }
+            c >>= 1;
+        }
+    }
+
+    bitset<512> b2;
+    for (int i = 0; i < 64; ++i) {
+        char c = hashes2.at(s).at(i);
+        for (int j = 7; j >= 0 && c; --j) {
+            if (c & 0x1) {
+                b2.set(8 * i + j);
+            }
+            c >>= 1;
+        }
+    }
+
+    double sutapimai = 0, sutapimai2 = 0;
+
+    for(int j = 0; j < 512; j++) if(b1.test(j) != b2.test(j)) sutapimai++;
+    for(int j = 0; j < 64; j++) if(hashes1.at(s).at(j) != hashes2.at(s).at(j)) sutapimai2++;
+
+    skirtumai.push_back(sutapimai / 512 * 100);
+    skirtumai2.push_back(sutapimai2 / 64 * 100);
+  }
+  cout << "Bitu lygmenyje:" << endl;
+  cout << "Min skirtumo reiksme = " << *min_element(skirtumai.begin(), skirtumai.end()) << "%" << endl;
+  cout << "Max skirtumo reiksme = " << *max_element(skirtumai.begin(), skirtumai.end()) << "%" << endl;
+  cout << "Vidurkines skirtumo reiksme = " << accumulate( skirtumai.begin(), skirtumai.end(), 0.0) / skirtumai.size() << "%" << endl;
+  cout << "Hash'o lygmenyje:" << endl;
+  cout << "Min skirtumo reiksme = " << *min_element(skirtumai2.begin(), skirtumai2.end()) << "%" << endl;
+  cout << "Max skirtumo reiksme = " << *max_element(skirtumai2.begin(), skirtumai2.end()) << "%" << endl;
+  cout << "Vidurkines skirtumo reiksme = " << accumulate( skirtumai2.begin(), skirtumai2.end(), 0.0) / skirtumai2.size() << "%" << endl;
 }

@@ -113,3 +113,25 @@ FOR int i=0; i<8; i++:
 - File - 1001Symbols4.txt, Hash - 709f4ff0218f4f02e20a56bb77733734e3d427e2e01a33608be5529a731aab36
 4. Tuščias failas:
 - File - emptyFile.txt, Hash - e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+5. Efektyvumas:
+<br/>![image](https://user-images.githubusercontent.com/80633152/193473910-a6faf464-0e49-4fd1-aec9-1be8ffd5b174.png)
+6. 100 000 atsitiktinių simbolių eilučių porų:
+- 25 000 porų, kurių ilgis 10 simbolių, kolizijų skaičius - 0.
+- 25 000 porų, kurių ilgis 100 simbolių, kolizijų skaičius - 0.
+- 25 000 porų, kurių ilgis 500 simbolių, kolizijų skaičius - 0.
+- 25 000 porų, kurių ilgis 1000 simbolių, kolizijų skaičius - 0.
+7. 100 000 atsitiktinių simbolių eilučių porų, 32 simbolių eilučių ilgiu, juos skiria tik vienas simbolis. Įvertinamas gautų hash'ų procentinis "skirtingumas" bitų lygmenyje:
+- Bitų lygmenyje:
+  - Minimali skirtingumo reikšmė: **0%**
+  - Maksimali skirtingumo reikšmė: **43.4%**
+  - Vidurinė skirtingumo reikšmė: **33%**
+- Hexo lygmenyje:
+  - Minimali skirtingumo reikšmė: **0%**
+  - Maksimali skirtingumo reikšmė: **100%**
+  - Vidurinė skirtingumo reikšmė: **93.8%**
+
+# Išvados:
+  - Algoritmas yra greitas
+  - Atstatyti išėjimą į įėjimą neįmanoma
+  - Funkcija yra deterministinė
+  - Minimalus įėjimo pakeitimai absoliučiai pakeičia išėjimą
